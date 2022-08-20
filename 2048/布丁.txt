@@ -1,0 +1,178 @@
+def Get_Evl(my_chessboard, state, side=1, L_atk=0, R_atk=0, v1=1.0, v2=1.0, v3=1.0, v4=1.0) -> float:
+    '''
+    棋盘评估结果以先手方为正，后手方为负;
+    state取0或1，0代表落子阶段，1代表合并阶段，side默认为1（代表评估先手），取-1可使返回值反号；
+    L_atk选择先手方是否使用进攻策略，R_atk选择后手方是否使用进攻策略，两者默认为0；
+    参数 v1 v2 v3 v4 分别对应 Evl Smooth_Evl Free_Evl Threat_Evl 的权重（float）；
+    '''
+    return float(side *
+                 (v1 * Evl(my_chessboard, L_atk, R_atk) +
+                  v2 * Smooth_Evl(my_chessboard) +
+                  v3 * Free_Evl(my_chessboard) +
+                  v4 * Threat_Evl(my_chessboard, state, side)))
+
+    def move_search(self,my_chessboard,player_move_mode,depth,last_max_min):
+        '''
+        搜索函数
+        传入目前的棋盘的bytearray形式my_chessboard, 目前要执行的走棋类型move_mode, 搜索层数depth, 上一级的max_min
+        函数本身只会返回局面的value值
+        搜索判断的结果存放在self.answer中
+        初始调用depth为0, last_max_min float('inf')
+        '''
+        max_min=0
+        #print(depth)
+        if depth == self.end_depth:
+            #到底获取估值函数
+            if player_move_mode in ('my_position', 'your_position'):
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,0)
+                else:
+                    return Get_Evl(my_chessboard,0,-1)
+            else:
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,1)
+                else:
+                    return Get_Evl(my_chessboard,1,-1)
+
+        if player_move_mode == 'my_position':
+            max_min=float('-inf')
+            available_list=self.get_available(my_chessboard,player_move_mode)
+            for place in available_list:
+                #print(place)
+                #copy一个来传递就不用回溯棋盘了...
+                next_chessboard=my_chessboard.copy()
+                if self.isFirst: #先手 左边为己方
+                    if place < 16:
+                        next_chessboard[2*place]=1 #1己方0对方
+                        next_chessboard[2*place+1]=1 #放在己方的2
+                    else:
+                        next_chessboard[2*place]=0
+                        next_chessboard[2*place+1]=1 #放在对方的2
+                else: #后手 右边为己方
+                    if place>=16:
+                        next_chessboard[2*place]=0
+                        next_chessboard[2*place+1]=1 #放在己方的2
+                    else:
+                        next_chessboard[2*place]=1
+                        next_chessboard[2*place+1]=1 #放在对方的2
+                depth+=1
+                new_value=self.move_search(next_chessboard,self.get_next_mode(player_move_mode),depth,max_min) #recurse
+                depth-=1
+                if depth!=0:  
+                    max_min=max(max_min,new_value)
+                elif (new_value>max_min): #首层决策
+                    max_min=new_value
+                    col=place//4
+                    row=place%4
+                    self.answer=(row,col)
+                if max_min>last_max_min:
+                    return max_min
+            if max_min == float('-inf'):
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,0)
+                else:
+                    return Get_Evl(my_chessboard,0,-1)
+
+        if player_move_mode == 'your_position':
+            max_min=float('inf')
+            available_list=self.get_available(my_chessboard,player_move_mode)
+            for place in available_list:
+                #copy一个来传递就不用回溯棋盘了...
+                next_chessboard=my_chessboard.copy()
+                if self.isFirst: #对方为后手 右边为限制域
+                    if place >= 16:
+                        next_chessboard[2*place]=0 #0己方1对方
+                        next_chessboard[2*place+1]=1 #对方在自己的右边下2
+                    else:
+                        next_chessboard[2*place]=1
+                        next_chessboard[2*place+1]=1 
+                else: #对方为先手
+                    if place<16:
+                        next_chessboard[2*place]=1
+                        next_chessboard[2*place+1]=1 
+                    else:
+                        next_chessboard[2*place]=0
+                        next_chessboard[2*place+1]=1 #放在对方的2
+                depth+=1
+                new_value=self.move_search(next_chessboard,self.get_next_mode(player_move_mode),depth,max_min) #recurse
+                depth-=1
+                max_min=min(max_min,new_value)
+                if max_min<=last_max_min:
+                    return max_min
+            if max_min==float('inf'):
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,0)
+                else:
+                    return Get_Evl(my_chessboard,0,-1)
+
+        if player_move_mode == 'my_direction':
+            max_min=float('-inf')
+            for direction in range(4): #0~3代表上下左右
+                next_chessboard=my_chessboard.copy()
+                next_chessboard=self.switch(next_chessboard,direction,self.isFirst)#调用滑动函数
+                if next_chessboard == my_chessboard:
+                    continue
+                if not self.isFirst:
+                    self.currentRound+=1
+                depth+=1
+                new_value=self.move_search(next_chessboard,self.get_next_mode(player_move_mode),depth,max_min) #recurse
+                depth-=1
+                if not self.isFirst:
+                    self.currentRound-=1
+                if depth != 0:  
+                    max_min=max(max_min,new_value)
+                elif (new_value>max_min):
+                    max_min=new_value
+                    self.answer=direction
+                if max_min>last_max_min:
+                    return max_min
+            if max_min == float('-inf'):
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,1)
+                else:
+                    return Get_Evl(my_chessboard,1,-1)
+
+        if player_move_mode == 'your_direction':
+            max_min=float('inf')
+            for direction in range(4): #0~3代表上下左右
+                next_chessboard=my_chessboard.copy()
+                next_chessboard=self.switch(next_chessboard,direction,not self.isFirst) #调用滑动函数
+                if next_chessboard == my_chessboard:
+                    continue
+                if self.isFirst:
+                    self.currentRound+=1
+                depth+=1
+                new_value=self.move_search(next_chessboard,self.get_next_mode(player_move_mode),depth,max_min) #recurse
+                depth-=1
+                if self.isFirst:
+                    self.currentRound-=1
+                max_min=min(max_min,new_value)
+                if max_min<=last_max_min:
+                    return max_min
+            if max_min==float('inf'):
+                if self.isFirst:
+                    return Get_Evl(my_chessboard,1)
+                else:
+                    return Get_Evl(my_chessboard,1,-1)
+
+        return max_min
+
+    def make_move_decision(self,chessboard,player_move_mode,time_remain):
+        #后续再调
+        '''
+        调用此函数以获得走棋策略
+        传入棋盘、己方走棋模式、剩余时间
+        函数本身无返回值，结果请读入self.answer
+        '''
+        self.answer=None
+        if self.currentRound<=100:
+            self.end_depth=2
+        elif self.currentRound<=160:
+            self.end_depth=3
+        elif self.currentRound<=220:
+            self.end_depth=4
+        else:
+            self.end_depth=5
+        if (player_move_mode=='my_position' and not self.isFirst) or (player_move_mode=='my_direction' and self.isFirst):
+            self.end_depth+=1
+        self.move_search(chessboard,player_move_mode,0,float('inf'))

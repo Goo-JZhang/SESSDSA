@@ -1,0 +1,9 @@
+*.png
+*.docx
+*.pdf
+C2/CP210x_Windows_Drivers/
+*.zip
+2048/sessdsa.2048-master/src/tools/player.py
+*.mpg
+2048/sessdsa.2048-master/.gitignore
+2048/sessdsa.2048-master/

@@ -1,0 +1,10 @@
+1.0改变list长度
+1.1改变索引大小
+2.0改变dict长度测get item
+2.1改变索引大小测get item
+2.2改变dict长度测set item
+3.0-1改变list长度测del
+3.0-2改变dict长度测del
+3.1-1改变del索引测del list
+3.1-2改变del索引测del dict
+4.0验证sort复杂度曲线
